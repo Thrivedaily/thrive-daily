@@ -61,10 +61,10 @@ const BENEFITS = [
 ];
 
 const COACHING_CTA =
-  "mailto:hello@thrivedaily.app?subject=Accountability%20Coaching%20—%20Get%20Coached&body=Hi%2C%20I'm%20ready%20for%20live%20accountability%20coaching%20with%20Thrive%20Daily.%0A%0AMy%20primary%20goal%3A%20";
+  "mailto:info@thrivedaily.io?subject=Accountability%20Coaching%20—%20Get%20Coached&body=Hi%2C%20I'm%20ready%20for%20live%20accountability%20coaching%20with%20Thrive%20Daily.%0A%0AMy%20primary%20goal%3A%20";
 
 function planCta(tier: string, price: string) {
-  return `mailto:hello@thrivedaily.app?subject=${encodeURIComponent(
+  return `mailto:info@thrivedaily.io?subject=${encodeURIComponent(
     `Accountability Coaching — ${tier} Plan`
   )}&body=${encodeURIComponent(
     `Hi, I'm interested in the ${tier} plan ($${price}/month) for live accountability coaching with Thrive Daily.\n\nMy primary goal: `

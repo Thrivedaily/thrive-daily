@@ -17,6 +17,7 @@ import { HEALTHY_HABITS } from "@/data/healthyHabits";
 import { getVirtueOfTheDay } from "@/data/virtues";
 import { getTouchstoneOfTheDay } from "@/data/touchstones";
 import { cn } from "@/lib/cn";
+import { DreamSaferText } from "@/components/ui/dreamsafer-text";
 
 /** Ring fills to 100% at the thriving threshold (150), not max daily points */
 function thrivingRingPercent(score: number): number {
@@ -221,7 +222,7 @@ export default function HomePage() {
                 href="/virtues"
                 className="mt-4 inline-flex items-center gap-1.5 self-start rounded-xl bg-teal-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-500"
               >
-                Explore virtues
+                Explore all virtues
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -336,9 +337,16 @@ export default function HomePage() {
                                 "text-muted-foreground line-through decoration-teal-500/40"
                             )}
                           >
-                            {habit.name}
+                            <DreamSaferText text={habit.name} />
                           </span>
-                          <span className="shrink-0 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+                          <span
+                            className={cn(
+                              "shrink-0 text-[11px] font-semibold tabular-nums",
+                              habit.points >= 20
+                                ? "text-red-600 dark:text-red-400"
+                                : "text-teal-700 dark:text-teal-300"
+                            )}
+                          >
                             +{habit.points}
                           </span>
                         </button>
@@ -356,7 +364,7 @@ export default function HomePage() {
       <Card className="space-y-3 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <CardTitle className="text-base">Healthy habits in play</CardTitle>
+            <CardTitle className="text-base">My Healthy Habits - Focus Areas</CardTitle>
             <p className="mt-0.5 text-xs text-muted-foreground">
               {focusedHealthyHabits.length === 0
                 ? "Select habits to weave into your day"

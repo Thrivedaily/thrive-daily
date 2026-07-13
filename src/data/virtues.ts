@@ -26,7 +26,7 @@ export const VIRTUES: Virtue[] = [
   {
     "id": "virtue-2",
     "name": "Forgiveness",
-    "description": "Avoid the avalanche of harm that can come when we yield to anger.  \"Lord, I need you to stop my tongue from saying any word that does not build up those who listen.\"",
+    "description": "Voluntarily release the debt someone owes you for their wrong, so your future is no longer chained to their past. Avoid the avalanche of harm that can come when we yield to anger. \"Lord, I need you to stop my tongue from saying any word that does not build up those who listen.\"",
     "order": 2,
     "group": "additional",
     "reflections": [

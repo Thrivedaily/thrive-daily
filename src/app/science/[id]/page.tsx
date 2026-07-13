@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { HABITS, getHabitById } from "@/data/habits";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ScienceActions } from "./science-actions";
+import { DreamSaferText } from "@/components/ui/dreamsafer-text";
 
 export function generateStaticParams() {
   return HABITS.map((h) => ({ id: h.id }));
@@ -14,6 +15,13 @@ export function generateMetadata({ params }: { params: { id: string } }) {
   return {
     title: habit ? habit.name : "Science",
   };
+}
+
+function linkLabel(url: string): string {
+  if (url.includes("dreamsafer") || url.includes("copy-of-dreamsafer")) {
+    return "DreamSafer";
+  }
+  return url;
 }
 
 export default function ScienceDetailPage({
@@ -37,8 +45,16 @@ export default function ScienceDetailPage({
         <p className="text-sm font-medium text-teal-600 dark:text-teal-400">
           {habit.category} · {habit.time}
         </p>
-        <h1 className="mt-1 text-3xl font-bold tracking-tight">{habit.name}</h1>
-        <p className="mt-2 inline-flex rounded-full bg-teal-500/10 px-3 py-1 text-sm font-semibold text-teal-700 dark:text-teal-300">
+        <h1 className="mt-1 text-3xl font-bold tracking-tight">
+          <DreamSaferText text={habit.name} />
+        </h1>
+        <p
+          className={
+            habit.points >= 20
+              ? "mt-2 inline-flex rounded-full bg-red-500/10 px-3 py-1 text-sm font-semibold text-red-600 dark:text-red-400"
+              : "mt-2 inline-flex rounded-full bg-teal-500/10 px-3 py-1 text-sm font-semibold text-teal-700 dark:text-teal-300"
+          }
+        >
           +{habit.points} points
         </p>
       </div>
@@ -48,7 +64,12 @@ export default function ScienceDetailPage({
       <Card className="space-y-2">
         <CardTitle>How to do it</CardTitle>
         <p className="text-sm leading-relaxed text-muted-foreground whitespace-pre-wrap">
-          {habit.howTo || "Follow the protocol name as written — consistency beats intensity."}
+          <DreamSaferText
+            text={
+              habit.howTo ||
+              "Follow the protocol name as written — consistency beats intensity."
+            }
+          />
         </p>
       </Card>
 
@@ -81,7 +102,7 @@ export default function ScienceDetailPage({
                   className="inline-flex items-start gap-2 text-sm font-medium text-teal-700 break-all hover:underline dark:text-teal-300"
                 >
                   <ExternalLink className="mt-0.5 h-4 w-4 shrink-0" />
-                  {url}
+                  {linkLabel(url)}
                 </a>
               </li>
             ))}

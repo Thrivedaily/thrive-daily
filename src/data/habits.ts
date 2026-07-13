@@ -79,7 +79,7 @@ export const HABITS: Habit[] = [
     "id": "habit-005",
     "category": "Morning",
     "time": "0-2 hours after waking",
-    "name": "AVOID CAFFEINE FOR 2 HOURS AFTER WAKING",
+    "name": "Avoid caffeine for 2 hours after waking",
     "points": 20,
     "order": 5,
     "howTo": "Delay coffee or caffeinated drinks for at least 2 hours after waking; opt for water instead.",
@@ -117,7 +117,7 @@ export const HABITS: Habit[] = [
     "id": "habit-007",
     "category": "Morning",
     "time": "0-2 hours",
-    "name": "GET MORNING SUNLIGHT",
+    "name": "Get morning sunlight",
     "points": 30,
     "order": 7,
     "howTo": "Get 10 minutes of morning sunlight or 10,000 LUX light within 1 hour of waking, avoiding sunglasses.",
@@ -428,12 +428,32 @@ export const HABITS: Habit[] = [
     "categoryKey": "late-evening"
   },
   {
+    "id": "habit-026",
+    "category": "Bedtime",
+    "time": "Bedtime",
+    "name": "Place phone in RF blocker before bed (DreamSafer)",
+    "points": 5,
+    "order": 24,
+    "howTo": "Place phone in RF blocker before bed (DreamSafer)",
+    "whyImportant": "Reducing EMF exposure minimizes sleep disruptions, anxiety, and melatonin suppression, improving sleep quality and mood. Done at bedtime to prevent interference with natural sleep cycles, supporting better energy and alertness upon waking.",
+    "detailedScience": "EMF from phones can suppress melatonin, increase stress hormones, and disrupt sleep. Studies show RF-EMF exposure reduces melatonin levels by 10-15%, increasing inflammation and anxiety. Grounding or reducing EMF improves sleep quality and normalizes cortisol and melatonin secretion. Long-term phone use has no direct effect on sleep quality in some studies, but arousal from blue light and EMFs delays sleep and affects well-being.",
+    "links": [
+      "https://tarheelbeef.com/pages/copy-of-dreamsafer%E2%84%A2-sleep-shield",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC9608227/",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC1111718/",
+      "https://ehjournal.biomedcentral.com/articles/10.1186/s12940-022-00882-8",
+      "https://jcsm.aasm.org/doi/10.5664/jcsm.10392",
+      "https://www.sciencedirect.com/science/article/pii/S2319417023000033"
+    ],
+    "categoryKey": "bedtime"
+  },
+  {
     "id": "habit-024",
     "category": "Bedtime",
     "time": "Bedtime",
     "name": "Reflect/journal on day - What good did I do?",
     "points": 5,
-    "order": 24,
+    "order": 25,
     "howTo": "Spend 5-10 minutes before bed writing in a journal about positive actions or good deeds from the day, focusing on gratitude and reflection.",
     "whyImportant": "Evening reflection processes emotions, reduces stress, enhances self-awareness, and boosts mood and gratitude, leading to better sleep quality. Done at bedtime to clear mental clutter and foster positive neural pathways for improved energy and alertness the next day.",
     "detailedScience": "Evening journaling promotes emotional processing and gratitude, improving mood, satisfaction with life, and sleep. Studies show gratitude interventions reduce stress, anxiety, and depression, enhancing well-being and sleep quality. Practicing gratitude lowers heart rate, blood pressure, and improves exercise habits. It acts as expressive writing, reducing stress and boosting mental health.",
@@ -452,7 +472,7 @@ export const HABITS: Habit[] = [
     "time": "Bedtime",
     "name": "Ensure room is completely dark/cool",
     "points": 5,
-    "order": 25,
+    "order": 26,
     "howTo": "Make your bedroom pitch black by using blackout curtains, eye masks, or covering light sources; set the thermostat to 60-67°F (15-19°C) for a cool environment.",
     "whyImportant": "Darkness and cool temperatures boost melatonin production, improving sleep quality, reducing oxidative stress, and lowering risks of diabetes and heart disease. Done at bedtime to optimize recovery during sleep, leading to better mood, energy, and alertness the next day.",
     "detailedScience": "Darkness enhances melatonin secretion, which regulates sleep and has antioxidant properties, reducing oxidative stress and promoting health. Studies show that light exposure at night suppresses melatonin, increasing risks for metabolic disorders; cool environments decrease wakefulness and support deep sleep stages. Heat or cold exposure affects REM and slow-wave sleep, with room light suppressing melatonin by over 50%, causing hypoperfusion and fatigue. Melatonin combats oxidative stress and inflammation, restoring tissue function.",
@@ -462,25 +482,6 @@ export const HABITS: Habit[] = [
       "https://www.sciencedirect.com/science/article/abs/pii/S1095643313001037",
       "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2017.00785/full",
       "https://onlinelibrary.wiley.com/doi/10.1111/jpi.12360"
-    ],
-    "categoryKey": "bedtime"
-  },
-  {
-    "id": "habit-026",
-    "category": "Bedtime",
-    "time": "Bedtime",
-    "name": "Place phone in RF blocker away from bed before sleep",
-    "points": 5,
-    "order": 26,
-    "howTo": "Place your phone in an RF-blocking pouch or faraday bag and keep it at least 3 feet away from your bed or in another room before sleeping.  Check out www.TarheelBeef.com/dreamsafer for a quality RF phone cradle.",
-    "whyImportant": "Reducing EMF exposure minimizes sleep disruptions, anxiety, and melatonin suppression, improving sleep quality and mood. Done at bedtime to prevent interference with natural sleep cycles, supporting better energy and alertness upon waking.",
-    "detailedScience": "EMF from phones can suppress melatonin, increase stress hormones, and disrupt sleep. Studies show RF-EMF exposure reduces melatonin levels by 10-15%, increasing inflammation and anxiety. Grounding or reducing EMF improves sleep quality and normalizes cortisol and melatonin secretion. Long-term phone use has no direct effect on sleep quality in some studies, but arousal from blue light and EMFs delays sleep and affects well-being.",
-    "links": [
-      "https://pmc.ncbi.nlm.nih.gov/articles/PMC9608227/",
-      "https://pmc.ncbi.nlm.nih.gov/articles/PMC1111718/",
-      "https://ehjournal.biomedcentral.com/articles/10.1186/s12940-022-00882-8",
-      "https://jcsm.aasm.org/doi/10.5664/jcsm.10392",
-      "https://www.sciencedirect.com/science/article/pii/S2319417023000033"
     ],
     "categoryKey": "bedtime"
   },

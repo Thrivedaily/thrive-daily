@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { DreamSaferText } from "@/components/ui/dreamsafer-text";
 
 export function CheckboxRow({
   checked,
@@ -47,10 +48,16 @@ export function CheckboxRow({
               checked && "text-muted-foreground line-through decoration-teal-500/50"
             )}
           >
-            {title}
+            <DreamSaferText text={title} />
           </p>
           {typeof points === "number" && (
-            <span className="shrink-0 rounded-full bg-teal-500/10 px-2 py-0.5 text-xs font-semibold text-teal-700 dark:text-teal-300">
+            <span
+              className={
+                points >= 20
+                  ? "shrink-0 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-600 dark:text-red-400"
+                  : "shrink-0 rounded-full bg-teal-500/10 px-2 py-0.5 text-xs font-semibold text-teal-700 dark:text-teal-300"
+              }
+            >
               +{points}
             </span>
           )}
