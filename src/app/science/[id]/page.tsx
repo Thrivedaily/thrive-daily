@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
-import { HABITS, getHabitById } from "@/data/habits";
+import { getHabitById } from "@/data/habits";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ScienceActions } from "./science-actions";
 import { DreamSaferText } from "@/components/ui/dreamsafer-text";
 
-export function generateStaticParams() {
-  return HABITS.map((h) => ({ id: h.id }));
-}
+/** Avoid slow/static generation timeouts for science detail routes (esp. habit-026). */
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
 
 export function generateMetadata({ params }: { params: { id: string } }) {
   const habit = getHabitById(params.id);

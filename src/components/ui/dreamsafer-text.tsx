@@ -1,3 +1,5 @@
+"use client";
+
 import { DREAMSAFER_URL } from "@/lib/dreamsafer";
 
 /** Renders text with "DreamSafer" as a clickable product link when present */
