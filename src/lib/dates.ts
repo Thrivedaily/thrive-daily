@@ -26,6 +26,25 @@ export function isYesterday(dateKey: string, relativeTo = new Date()): boolean {
   return dateKey === todayKey(d);
 }
 
+/** Parse YYYY-MM-DD as local calendar date */
+export function parseDateKey(dateKey: string): Date {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+/** Whole calendar days from a → b (can be negative) */
+export function daysBetween(fromKey: string, toKey: string): number {
+  const a = parseDateKey(fromKey);
+  const b = parseDateKey(toKey);
+  const ms = b.getTime() - a.getTime();
+  return Math.round(ms / 86400000);
+}
+
+/** True if `nextKey` is exactly one calendar day after `prevKey` */
+export function isNextCalendarDay(prevKey: string, nextKey: string): boolean {
+  return daysBetween(prevKey, nextKey) === 1;
+}
+
 export function greetingForHour(hour = new Date().getHours()): string {
   if (hour < 5) return "Burning the midnight oil";
   if (hour < 12) return "Good morning";

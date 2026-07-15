@@ -11,6 +11,7 @@ import {
   THRIVING_THRESHOLD,
   tierForScore,
 } from "@/lib/scoring";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 export default function ProtocolsPage() {
   const { state, hydrated, dailyScore, toggleHabit, resetToday } = useAppStore();
@@ -61,6 +62,8 @@ export default function ProtocolsPage() {
           Reset today
         </button>
       </div>
+
+      <SignInPrompt compact />
 
       <Card className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-teal-500/10 to-emerald-500/5">
         <div>

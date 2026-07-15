@@ -5,6 +5,7 @@ import { VIRTUES, VIRTUE_GROUPS, getVirtueOfTheDay } from "@/data/virtues";
 import { Card, CardTitle } from "@/components/ui/card";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 export default function VirtuesPage() {
   const virtueOfDay = getVirtueOfTheDay();
@@ -33,6 +34,8 @@ export default function VirtuesPage() {
           Classical excellence and practices for eudaimonia — human flourishing.
         </p>
       </div>
+
+      <SignInPrompt compact />
 
       <Card className="border-teal-500/30 bg-gradient-to-br from-teal-500/15 to-emerald-500/5">
         <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">

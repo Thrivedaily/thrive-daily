@@ -10,6 +10,8 @@ export function defaultState(): AppState {
     lifetimePoints: 0,
     streak: 0,
     bestStreak: 0,
+    totalThrivingDays: 0,
+    lastThrivingDate: null,
     lastActiveDate: null,
     unlockedBadges: [],
     goals: [],
@@ -43,6 +45,24 @@ export function loadState(): AppState {
     if (!base.touchstoneDoneToday) base.touchstoneDoneToday = {};
     if (!base.healthyHabitChecks) base.healthyHabitChecks = {};
     if (!base.healthyHabitDoneToday) base.healthyHabitDoneToday = {};
+    base.totalThrivingDays = Number(base.totalThrivingDays) || 0;
+    base.lastThrivingDate =
+      typeof base.lastThrivingDate === "string" ? base.lastThrivingDate : null;
+
+    // Migrate totalThrivingDays from score history if never set
+    if (
+      !parsed.totalThrivingDays &&
+      base.scoreHistory &&
+      Object.keys(base.scoreHistory).length > 0
+    ) {
+      const thrived = Object.values(base.scoreHistory).filter(
+        (s) => Number(s) >= 150
+      ).length;
+      if (thrived > base.totalThrivingDays) {
+        base.totalThrivingDays = thrived;
+      }
+    }
+
     // drop legacy field if present
     delete (base as { healthyHabits?: unknown }).healthyHabits;
 

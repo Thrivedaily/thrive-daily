@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
 
@@ -116,6 +117,8 @@ export default function CoachingPage() {
 
   return (
     <div className="space-y-8">
+      <SignInPrompt compact />
+
       {/* Hero — emotional, important, visual */}
       <section className="relative overflow-hidden rounded-3xl border border-teal-500/25 bg-gradient-to-b from-teal-500/10 via-card to-card shadow-glow">
         <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-teal-500/20 blur-3xl" />

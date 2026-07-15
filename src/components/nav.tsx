@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   SignInButton,
+  SignOutButton,
   SignUpButton,
   UserButton,
   useAuth,
@@ -16,6 +17,7 @@ import {
   HeartPulse,
   Home,
   LogIn,
+  LogOut,
   Menu,
   Sparkles,
   Target,
@@ -56,6 +58,48 @@ function SyncHint({ className }: { className?: string }) {
   );
 }
 
+function ClerkUserButton() {
+  return (
+    <UserButton
+      afterSignOutUrl="/"
+      showName={false}
+      appearance={{
+        elements: {
+          avatarBox: "h-9 w-9",
+          userButtonPopoverCard: "shadow-lg",
+          userButtonPopoverActionButton__signOut:
+            "text-red-600 dark:text-red-400 font-semibold",
+        },
+      }}
+    >
+      {/* Ensures Manage account + Sign out are available in the popover */}
+      <UserButton.MenuItems>
+        <UserButton.Action label="manageAccount" />
+        <UserButton.Action label="signOut" />
+      </UserButton.MenuItems>
+    </UserButton>
+  );
+}
+
+/** Compact sign-out — sits below Profile, smaller than main nav items */
+function SignOutNavButton({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <SignOutButton redirectUrl="/">
+      <button
+        type="button"
+        onClick={() => onNavigate?.()}
+        className={cn(
+          "mt-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition",
+          "text-muted-foreground hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300"
+        )}
+      >
+        <LogOut className="h-3.5 w-3.5 shrink-0 opacity-80" />
+        Sign Out
+      </button>
+    </SignOutButton>
+  );
+}
+
 /** Auth block styled like nav items — under Coaching on desktop + mobile menu */
 function NavAuthSection({
   onNavigate,
@@ -90,49 +134,39 @@ function NavAuthSection({
     const email = user?.primaryEmailAddress?.emailAddress;
 
     return (
-      <div className="space-y-1">
-        <div
-          className={cn(
-            "flex items-center gap-3 rounded-xl border px-2.5 py-2 transition",
-            profileActive
-              ? "border-teal-500/30 bg-teal-500/15"
-              : "border-border/70 bg-background/50 hover:bg-muted/60"
-          )}
+      <div
+        className={cn(
+          "flex items-center gap-3 rounded-xl border px-2.5 py-2 transition",
+          profileActive
+            ? "border-teal-500/30 bg-teal-500/15"
+            : "border-border/70 bg-background/50 hover:bg-muted/60"
+        )}
+      >
+        <ClerkUserButton />
+        <Link
+          href="/profile"
+          onClick={onNavigate}
+          className="min-w-0 flex-1 text-left"
         >
-          <UserButton
-            afterSignOutUrl="/"
-            appearance={{
-              elements: {
-                avatarBox: "h-9 w-9",
-                userButtonPopoverCard: "shadow-lg",
-              },
-            }}
-          />
-          <Link
-            href="/profile"
-            onClick={onNavigate}
-            className="min-w-0 flex-1 text-left"
-          >
-            <p
-              className={cn(
-                "truncate text-sm font-medium",
-                profileActive
-                  ? "text-teal-700 dark:text-teal-300"
-                  : "text-foreground"
-              )}
-            >
-              {name}
-            </p>
-            {email ? (
-              <p className="truncate text-[10px] text-muted-foreground">
-                {email}
-              </p>
-            ) : (
-              <SyncHint />
+          <p
+            className={cn(
+              "truncate text-sm font-medium",
+              profileActive
+                ? "text-teal-700 dark:text-teal-300"
+                : "text-foreground"
             )}
-            {email ? <SyncHint className="mt-0.5" /> : null}
-          </Link>
-        </div>
+          >
+            {name}
+          </p>
+          {email ? (
+            <p className="truncate text-[10px] text-muted-foreground">
+              {email}
+            </p>
+          ) : (
+            <SyncHint />
+          )}
+          {email ? <SyncHint className="mt-0.5" /> : null}
+        </Link>
       </div>
     );
   }
@@ -234,6 +268,7 @@ function NavLinks({
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { isLoaded, isSignedIn } = useAuth();
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border bg-card/80 px-4 py-6 lg:flex">
@@ -263,6 +298,7 @@ export function Sidebar() {
         </div>
 
         <NavLinks items={[NAV_PROFILE]} pathname={pathname} />
+        {isLoaded && isSignedIn ? <SignOutNavButton /> : null}
       </nav>
 
       <div className="mt-4 flex items-center justify-between border-t border-border px-2 pt-4">
@@ -276,6 +312,7 @@ export function Sidebar() {
 export function MobileHeader() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { isLoaded, isSignedIn } = useAuth();
 
   return (
     <>
@@ -343,6 +380,9 @@ export function MobileHeader() {
                 onNavigate={() => setOpen(false)}
                 dense
               />
+              {isLoaded && isSignedIn ? (
+                <SignOutNavButton onNavigate={() => setOpen(false)} />
+              ) : null}
             </nav>
           </div>
         </div>

@@ -28,6 +28,7 @@ import { getVirtueOfTheDay } from "@/data/virtues";
 import { getTouchstoneOfTheDay } from "@/data/touchstones";
 import { cn } from "@/lib/cn";
 import { DreamSaferText } from "@/components/ui/dreamsafer-text";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 /** Ring fills to 100% at the thriving threshold (150), not max daily points */
 function thrivingRingPercent(score: number): number {
@@ -111,6 +112,8 @@ export default function HomePage() {
         )}
       </section>
 
+      <SignInPrompt />
+
       <section className="grid gap-4 sm:grid-cols-2">
         {/* Daily Score — score, badges, leaderboard */}
         <Card className="relative overflow-hidden shadow-glow">
@@ -141,9 +144,9 @@ export default function HomePage() {
 
           <div className="mt-4 grid grid-cols-2 gap-2">
             <div className="rounded-xl border border-border bg-background/60 px-3 py-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
                 <Flame className="h-3.5 w-3.5 text-orange-500" />
-                Streak
+                Current Streak
               </div>
               <p className="mt-0.5 text-lg font-bold tabular-nums">
                 {state.streak}
@@ -152,18 +155,34 @@ export default function HomePage() {
                   day{state.streak === 1 ? "" : "s"}
                 </span>
               </p>
-              {state.bestStreak > 0 && (
-                <p className="text-[11px] text-muted-foreground">
-                  Best: {state.bestStreak}
-                </p>
-              )}
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                Consecutive {THRIVING_THRESHOLD}+ days
+                {state.bestStreak > 0
+                  ? ` · best ${state.bestStreak}`
+                  : ""}
+              </p>
             </div>
             <div className="rounded-xl border border-border bg-background/60 px-3 py-2.5">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
                 <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
-                Lifetime
+                Total Thriving Days
               </div>
               <p className="mt-0.5 text-lg font-bold tabular-nums">
+                {state.totalThrivingDays || 0}
+              </p>
+              <p className="text-[10px] leading-snug text-muted-foreground">
+                Lifetime days at {THRIVING_THRESHOLD}+
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-2 rounded-xl border border-border bg-background/60 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-teal-500" />
+                Lifetime points
+              </div>
+              <p className="text-lg font-bold tabular-nums">
                 {state.lifetimePoints}
                 <span className="text-sm font-medium text-muted-foreground">
                   {" "}

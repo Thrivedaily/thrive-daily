@@ -11,6 +11,7 @@ import {
 import { useAppStore } from "@/lib/store";
 import { HEALTHY_HABIT_POINTS } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 export default function HealthyHabitsPage() {
   const { state, hydrated, toggleHealthyHabit } = useAppStore();
@@ -39,6 +40,8 @@ export default function HealthyHabitsPage() {
           life.
         </p>
       </div>
+
+      <SignInPrompt compact />
 
       <Card className="border-teal-500/20 bg-gradient-to-r from-teal-500/10 to-emerald-500/5">
         <p className="text-sm text-muted-foreground">

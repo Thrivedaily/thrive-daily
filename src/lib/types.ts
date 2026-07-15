@@ -73,10 +73,20 @@ export interface AppState {
   completedHabits: Record<string, boolean>;
   /** Lifetime points (all-time) */
   lifetimePoints: number;
-  /** Current streak of days with score >= thriving threshold */
+  /**
+   * Current streak: consecutive days (including today once thrived)
+   * at or above the Thriving threshold (150+). Resets to 0 after a missed day.
+   */
   streak: number;
-  /** Longest streak */
+  /** Longest consecutive thriving streak ever */
   bestStreak: number;
+  /**
+   * Lifetime total of distinct days that reached Thriving (150+).
+   * Never decreases when a day is missed.
+   */
+  totalThrivingDays: number;
+  /** Last date (YYYY-MM-DD) that reached Thriving — used for streak continuity */
+  lastThrivingDate: string | null;
   /** Last date user completed at least one habit (YYYY-MM-DD) */
   lastActiveDate: string | null;
   /** Badge ids unlocked */

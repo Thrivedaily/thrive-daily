@@ -51,6 +51,7 @@ export function isEmptyProgress(state: AppState): boolean {
     (state.lifetimePoints || 0) === 0 &&
     (state.streak || 0) === 0 &&
     (state.bestStreak || 0) === 0 &&
+    (state.totalThrivingDays || 0) === 0 &&
     !hasHabits &&
     !hasHistory &&
     !hasBadges &&
@@ -78,6 +79,11 @@ export function normalizeAppState(raw: unknown): AppState {
     lifetimePoints: Number(parsed.lifetimePoints) || 0,
     streak: Number(parsed.streak) || 0,
     bestStreak: Number(parsed.bestStreak) || 0,
+    totalThrivingDays: Number(parsed.totalThrivingDays) || 0,
+    lastThrivingDate:
+      typeof parsed.lastThrivingDate === "string"
+        ? parsed.lastThrivingDate
+        : null,
     userName: typeof parsed.userName === "string" ? parsed.userName : "",
     activeDate:
       typeof parsed.activeDate === "string" ? parsed.activeDate : base.activeDate,

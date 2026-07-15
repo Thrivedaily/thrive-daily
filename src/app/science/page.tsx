@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CATEGORIES, HABITS } from "@/data/habits";
 import { Card } from "@/components/ui/card";
 import { DreamSaferText } from "@/components/ui/dreamsafer-text";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 export default function ScienceIndexPage() {
   return (
@@ -14,6 +15,8 @@ export default function ScienceIndexPage() {
           How to do each habit, why it matters, and the research behind it.
         </p>
       </div>
+
+      <SignInPrompt compact />
 
       {CATEGORIES.map((cat) => {
         const habits = HABITS.filter((h) => h.categoryKey === cat.key).sort(

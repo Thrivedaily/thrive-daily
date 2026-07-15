@@ -13,7 +13,12 @@ import {
 import { useAuth } from "@clerk/nextjs";
 import { HABITS } from "@/data/habits";
 import { BADGE_DEFS, levelFromLifetimePoints } from "@/data/badges";
-import { isYesterday, msUntilMidnight, todayKey } from "@/lib/dates";
+import {
+  daysBetween,
+  isNextCalendarDay,
+  msUntilMidnight,
+  todayKey,
+} from "@/lib/dates";
 import { pickStateOnSignIn } from "@/lib/progress-cloud";
 import {
   HEALTHY_HABIT_POINTS,
@@ -46,9 +51,54 @@ type Store = {
 
 const AppStoreContext = createContext<Store | null>(null);
 
+/**
+ * When daily score first reaches Thriving for `dateKey`, update
+ * current streak + lifetime thriving-day count. Idempotent per date.
+ */
+function applyThrivingDayIfNeeded(
+  state: AppState,
+  dailyScore: number,
+  dateKey: string
+): AppState {
+  if (dailyScore < THRIVING_THRESHOLD) return state;
+  if (state.lastThrivingDate === dateKey) return state;
+
+  let streak = 1;
+  if (
+    state.lastThrivingDate &&
+    isNextCalendarDay(state.lastThrivingDate, dateKey)
+  ) {
+    streak = (state.streak || 0) + 1;
+  }
+
+  const bestStreak = Math.max(state.bestStreak || 0, streak);
+  const totalThrivingDays = (state.totalThrivingDays || 0) + 1;
+
+  return {
+    ...state,
+    streak,
+    bestStreak,
+    totalThrivingDays,
+    lastThrivingDate: dateKey,
+  };
+}
+
+/** Break current streak if the last thriving day is no longer "today or yesterday". */
+function expireStreakIfBroken(state: AppState, today: string): AppState {
+  if (!state.lastThrivingDate) {
+    return state.streak === 0 ? state : { ...state, streak: 0 };
+  }
+  const gap = daysBetween(state.lastThrivingDate, today);
+  // last thrived today (0) or yesterday (1) → streak still active
+  if (gap <= 1) return state;
+  return { ...state, streak: 0 };
+}
+
 function applyDayRollover(prev: AppState, now = new Date()): AppState {
   const today = todayKey(now);
-  if (prev.activeDate === today) return prev;
+  if (prev.activeDate === today) {
+    return expireStreakIfBroken(prev, today);
+  }
 
   const prevScore = dailyScoreFromState(
     prev.completedHabits,
@@ -59,43 +109,58 @@ function applyDayRollover(prev: AppState, now = new Date()): AppState {
     scoreHistory[prev.activeDate] = prevScore;
   }
 
-  let streak = prev.streak;
-  let bestStreak = prev.bestStreak;
-  let lastActiveDate = prev.lastActiveDate;
+  // Finalize thriving stats for the day we're leaving
+  let next = applyThrivingDayIfNeeded(
+    { ...prev, scoreHistory },
+    prevScore,
+    prev.activeDate
+  );
 
-  if (prevScore >= THRIVING_THRESHOLD) {
-    if (
-      prev.activeDate === todayKey(new Date(now.getTime() - 86400000)) ||
-      isYesterday(prev.activeDate, now)
-    ) {
-      streak = (prev.streak || 0) + 1;
-    } else if (prev.activeDate !== today) {
-      streak = 1;
-    }
-    lastActiveDate = prev.activeDate;
-    bestStreak = Math.max(bestStreak, streak);
-  } else if (prev.activeDate && prev.activeDate !== today) {
-    if (!isYesterday(prev.activeDate, now) && prev.activeDate !== today) {
-      streak = 0;
-    } else {
-      streak = 0;
+  // Multi-day gap without opening the app breaks the streak
+  next = expireStreakIfBroken(next, today);
+
+  // If yesterday didn't thrive (score below threshold), streak is already 0
+  // unless lastThrivingDate was still yesterday — only thrived days set it.
+  if (prevScore < THRIVING_THRESHOLD) {
+    const gapFromActive = daysBetween(prev.activeDate, today);
+    if (gapFromActive >= 1) {
+      // Closed a non-thriving day: streak continues only if last thrived day
+      // is still yesterday relative to *today* (e.g. thrived day-before-yesterday
+      // and missed yesterday → gap from lastThrivingDate > 1 → expired above).
+      next = expireStreakIfBroken(next, today);
     }
   }
 
-  const goals = prev.goals.map((g) => ({ ...g, completed: false }));
+  const goals = next.goals.map((g) => ({ ...g, completed: false }));
 
   return {
-    ...prev,
+    ...next,
     activeDate: today,
     completedHabits: {},
     touchstoneDoneToday: {},
     healthyHabitDoneToday: {},
     scoreHistory,
-    streak,
-    bestStreak,
-    lastActiveDate,
     goals,
   };
+}
+
+/** Shared post-score update: history, thriving streak/total, badges */
+function withScoreUpdate(
+  base: AppState,
+  patch: Partial<AppState> = {}
+): AppState {
+  let next: AppState = { ...base, ...patch };
+  const score = dailyScoreFromState(
+    next.completedHabits,
+    next.healthyHabitDoneToday
+  );
+  next = applyThrivingDayIfNeeded(next, score, next.activeDate);
+  next.scoreHistory = {
+    ...next.scoreHistory,
+    [next.activeDate]: score,
+  };
+  next.unlockedBadges = evaluateBadges(next, score);
+  return next;
 }
 
 function evaluateBadges(state: AppState, dailyScore: number): string[] {
@@ -318,23 +383,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       };
       const delta = was ? -habit.points : habit.points;
       const lifetimePoints = Math.max(0, rolled.lifetimePoints + delta);
-      const nextScore = dailyScoreFromState(
-        completedHabits,
-        rolled.healthyHabitDoneToday
-      );
 
-      const next: AppState = {
-        ...rolled,
+      return withScoreUpdate(rolled, {
         completedHabits,
         lifetimePoints,
         lastActiveDate: todayKey(),
-      };
-      next.unlockedBadges = evaluateBadges(next, nextScore);
-      next.scoreHistory = {
-        ...next.scoreHistory,
-        [next.activeDate]: nextScore,
-      };
-      return next;
+      });
     });
   }, []);
 
@@ -394,24 +448,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       } else {
         checks[id] = true;
       }
-      const nextScore = dailyScoreFromState(
-        rolled.completedHabits,
-        doneToday
-      );
-      return {
-        ...rolled,
+      return withScoreUpdate(rolled, {
         healthyHabitChecks: checks,
         healthyHabitDoneToday: doneToday,
         lifetimePoints,
-        scoreHistory: {
-          ...rolled.scoreHistory,
-          [rolled.activeDate]: nextScore,
-        },
-        unlockedBadges: evaluateBadges(
-          { ...rolled, healthyHabitDoneToday: doneToday, lifetimePoints },
-          nextScore
-        ),
-      };
+      });
     });
   }, []);
 
@@ -427,23 +468,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
       const delta = was ? -HEALTHY_HABIT_POINTS : HEALTHY_HABIT_POINTS;
       const lifetimePoints = Math.max(0, rolled.lifetimePoints + delta);
-      const nextScore = dailyScoreFromState(
-        rolled.completedHabits,
-        doneToday
-      );
 
-      const next: AppState = {
-        ...rolled,
+      return withScoreUpdate(rolled, {
         healthyHabitDoneToday: doneToday,
         lifetimePoints,
         lastActiveDate: todayKey(),
-      };
-      next.unlockedBadges = evaluateBadges(next, nextScore);
-      next.scoreHistory = {
-        ...next.scoreHistory,
-        [next.activeDate]: nextScore,
-      };
-      return next;
+      });
     });
   }, []);
 

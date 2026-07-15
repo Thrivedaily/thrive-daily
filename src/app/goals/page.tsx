@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { TOUCHSTONES, TOUCHSTONES_INTRO } from "@/data/touchstones";
 import { useAppStore } from "@/lib/store";
 import { cn } from "@/lib/cn";
+import { SignInPrompt } from "@/components/sign-in-prompt";
 
 export default function GoalsPage() {
   const { state, hydrated, toggleTouchstone } = useAppStore();
@@ -31,6 +32,8 @@ export default function GoalsPage() {
           {TOUCHSTONES_INTRO}
         </p>
       </div>
+
+      <SignInPrompt compact />
 
       <Card className="border-teal-500/20 bg-gradient-to-r from-teal-500/10 to-emerald-500/5 px-3 py-2.5">
         <p className="text-xs text-muted-foreground sm:text-sm">
