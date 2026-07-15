@@ -3,6 +3,9 @@ import type { ScoreTier } from "@/lib/types";
 
 export const THRIVING_THRESHOLD = 150;
 
+/** Points awarded for each Healthy Habit marked done today */
+export const HEALTHY_HABIT_POINTS = 20;
+
 export const SCORE_TIERS: ScoreTier[] = [
   {
     min: 200,
@@ -42,12 +45,34 @@ export const SCORE_TIERS: ScoreTier[] = [
   },
 ];
 
+/** Daily Protocols points only (unchanged per-habit values) */
 export function scoreFromCompletions(
   completed: Record<string, boolean>
 ): number {
   return HABITS.reduce(
     (sum, h) => sum + (completed[h.id] ? h.points : 0),
     0
+  );
+}
+
+/** Healthy Habits done today — 20 pts each */
+export function scoreFromHealthyHabits(
+  doneToday: Record<string, boolean> | undefined
+): number {
+  if (!doneToday) return 0;
+  return (
+    Object.values(doneToday).filter(Boolean).length * HEALTHY_HABIT_POINTS
+  );
+}
+
+/** Full daily score: protocols + healthy habits */
+export function dailyScoreFromState(
+  completedHabits: Record<string, boolean>,
+  healthyHabitDoneToday?: Record<string, boolean>
+): number {
+  return (
+    scoreFromCompletions(completedHabits) +
+    scoreFromHealthyHabits(healthyHabitDoneToday)
   );
 }
 

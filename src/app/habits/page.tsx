@@ -9,6 +9,7 @@ import {
   getHealthyHabitsByCategory,
 } from "@/data/healthyHabits";
 import { useAppStore } from "@/lib/store";
+import { HEALTHY_HABIT_POINTS } from "@/lib/scoring";
 import { cn } from "@/lib/cn";
 
 export default function HealthyHabitsPage() {
@@ -42,7 +43,11 @@ export default function HealthyHabitsPage() {
       <Card className="border-teal-500/20 bg-gradient-to-r from-teal-500/10 to-emerald-500/5">
         <p className="text-sm text-muted-foreground">
           Check habits you want to focus on — they appear on Home under your
-          daily protocols so you can complete them with the rest of your day.{" "}
+          daily protocols. Completing one there awards{" "}
+          <span className="font-semibold text-teal-700 dark:text-teal-300">
+            +{HEALTHY_HABIT_POINTS} points
+          </span>{" "}
+          toward your daily score and lifetime total.{" "}
           <span className="font-semibold text-foreground">
             {activeCount} of {HEALTHY_HABITS.length}
           </span>{" "}

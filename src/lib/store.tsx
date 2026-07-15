@@ -10,16 +10,25 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { HABITS } from "@/data/habits";
 import { BADGE_DEFS, levelFromLifetimePoints } from "@/data/badges";
 import { isYesterday, msUntilMidnight, todayKey } from "@/lib/dates";
-import { scoreFromCompletions, THRIVING_THRESHOLD } from "@/lib/scoring";
+import { pickStateOnSignIn } from "@/lib/progress-cloud";
+import {
+  HEALTHY_HABIT_POINTS,
+  dailyScoreFromState,
+  THRIVING_THRESHOLD,
+} from "@/lib/scoring";
 import { defaultState, loadState, saveState } from "@/lib/storage";
 import type { AppState, DailyGoal } from "@/lib/types";
+
+type SyncStatus = "idle" | "loading" | "synced" | "saving" | "error" | "local";
 
 type Store = {
   state: AppState;
   hydrated: boolean;
+  syncStatus: SyncStatus;
   dailyScore: number;
   levelInfo: ReturnType<typeof levelFromLifetimePoints>;
   toggleHabit: (habitId: string) => void;
@@ -41,7 +50,10 @@ function applyDayRollover(prev: AppState, now = new Date()): AppState {
   const today = todayKey(now);
   if (prev.activeDate === today) return prev;
 
-  const prevScore = scoreFromCompletions(prev.completedHabits);
+  const prevScore = dailyScoreFromState(
+    prev.completedHabits,
+    prev.healthyHabitDoneToday
+  );
   const scoreHistory = { ...prev.scoreHistory };
   if (prev.activeDate) {
     scoreHistory[prev.activeDate] = prevScore;
@@ -51,19 +63,18 @@ function applyDayRollover(prev: AppState, now = new Date()): AppState {
   let bestStreak = prev.bestStreak;
   let lastActiveDate = prev.lastActiveDate;
 
-  // Streak logic: if previous day thrived and was yesterday relative to today, keep/extend;
-  // if previous day thrived and we just rolled from that day, extend.
   if (prevScore >= THRIVING_THRESHOLD) {
-    if (prev.activeDate === todayKey(new Date(now.getTime() - 86400000)) || isYesterday(prev.activeDate, now)) {
+    if (
+      prev.activeDate === todayKey(new Date(now.getTime() - 86400000)) ||
+      isYesterday(prev.activeDate, now)
+    ) {
       streak = (prev.streak || 0) + 1;
     } else if (prev.activeDate !== today) {
-      // gap — start new streak at 1 if they thrived on activeDate but not contiguous
       streak = 1;
     }
     lastActiveDate = prev.activeDate;
     bestStreak = Math.max(bestStreak, streak);
   } else if (prev.activeDate && prev.activeDate !== today) {
-    // Missed thriving — if more than one day gap or didn't thrive, reset
     if (!isYesterday(prev.activeDate, now) && prev.activeDate !== today) {
       streak = 0;
     } else {
@@ -71,7 +82,6 @@ function applyDayRollover(prev: AppState, now = new Date()): AppState {
     }
   }
 
-  // Reset daily completions; keep healthy-habit focus selections
   const goals = prev.goals.map((g) => ({ ...g, completed: false }));
 
   return {
@@ -90,7 +100,8 @@ function applyDayRollover(prev: AppState, now = new Date()): AppState {
 
 function evaluateBadges(state: AppState, dailyScore: number): string[] {
   const unlocked = new Set(state.unlockedBadges);
-  const completedCount = Object.values(state.completedHabits).filter(Boolean).length;
+  const completedCount = Object.values(state.completedHabits).filter(Boolean)
+    .length;
   const level = levelFromLifetimePoints(state.lifetimePoints).level;
 
   const tryUnlock = (id: string, cond: boolean) => {
@@ -109,18 +120,114 @@ function evaluateBadges(state: AppState, dailyScore: number): string[] {
   return Array.from(unlocked);
 }
 
+async function fetchCloudProgress(): Promise<AppState | null> {
+  const res = await fetch("/api/user-progress", {
+    method: "GET",
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (res.status === 401) return null;
+  if (!res.ok) throw new Error(`Load failed (${res.status})`);
+  const data = (await res.json()) as {
+    progress?: { state?: AppState } | null;
+  };
+  return data.progress?.state ?? null;
+}
+
+async function saveCloudProgress(state: AppState): Promise<void> {
+  const res = await fetch("/api/user-progress", {
+    method: "PUT",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state }),
+  });
+  if (res.status === 401) return;
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "");
+    throw new Error(msg || `Save failed (${res.status})`);
+  }
+}
+
 export function AppStoreProvider({ children }: { children: ReactNode }) {
+  const { isLoaded: authLoaded, isSignedIn, userId } = useAuth();
   const [state, setState] = useState<AppState>(defaultState);
   const [hydrated, setHydrated] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cloudReady = useRef(false);
+  const skipNextCloudSave = useRef(false);
+  const activeUserId = useRef<string | null>(null);
 
+  // Initial hydrate from localStorage (works signed-out and as offline cache)
   useEffect(() => {
     const loaded = applyDayRollover(loadState());
     setState(loaded);
     setHydrated(true);
+    setSyncStatus("local");
   }, []);
 
-  // Persist
+  // When auth resolves / user changes: load Clerk-backed progress
+  useEffect(() => {
+    if (!hydrated || !authLoaded) return;
+
+    // Signed out → local only
+    if (!isSignedIn || !userId) {
+      activeUserId.current = null;
+      cloudReady.current = false;
+      setSyncStatus("local");
+      return;
+    }
+
+    // Same user already synced
+    if (activeUserId.current === userId && cloudReady.current) return;
+
+    let cancelled = false;
+    activeUserId.current = userId;
+    cloudReady.current = false;
+    setSyncStatus("loading");
+
+    (async () => {
+      try {
+        const local = applyDayRollover(loadState());
+        const remote = await fetchCloudProgress();
+        if (cancelled) return;
+
+        const { state: chosen, shouldUpload } = pickStateOnSignIn(
+          local,
+          remote ? applyDayRollover(remote) : null
+        );
+        const rolled = applyDayRollover(chosen);
+
+        // Avoid double-save when setState triggers the cloud effect after load
+        skipNextCloudSave.current = true;
+        setState(rolled);
+        saveState(rolled);
+
+        if (shouldUpload) {
+          setSyncStatus("saving");
+          await saveCloudProgress(rolled);
+        }
+
+        if (cancelled) return;
+        cloudReady.current = true;
+        setSyncStatus("synced");
+      } catch (err) {
+        console.error("[progress sync]", err);
+        if (!cancelled) {
+          // Stay on local data if cloud fails
+          cloudReady.current = true;
+          setSyncStatus("error");
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, authLoaded, isSignedIn, userId]);
+
+  // Persist to localStorage always (signed-in offline cache + signed-out primary)
   useEffect(() => {
     if (!hydrated) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
@@ -129,6 +236,32 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [state, hydrated]);
+
+  // Persist to Clerk when signed in
+  useEffect(() => {
+    if (!hydrated || !authLoaded || !isSignedIn || !userId) return;
+    if (!cloudReady.current) return;
+
+    if (skipNextCloudSave.current) {
+      skipNextCloudSave.current = false;
+      return;
+    }
+
+    if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    cloudSaveTimer.current = setTimeout(() => {
+      setSyncStatus("saving");
+      saveCloudProgress(state)
+        .then(() => setSyncStatus("synced"))
+        .catch((err) => {
+          console.error("[progress save]", err);
+          setSyncStatus("error");
+        });
+    }, 600);
+
+    return () => {
+      if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    };
+  }, [state, hydrated, authLoaded, isSignedIn, userId]);
 
   // Midnight reset timer
   useEffect(() => {
@@ -159,8 +292,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, [hydrated]);
 
   const dailyScore = useMemo(
-    () => scoreFromCompletions(state.completedHabits),
-    [state.completedHabits]
+    () =>
+      dailyScoreFromState(
+        state.completedHabits,
+        state.healthyHabitDoneToday
+      ),
+    [state.completedHabits, state.healthyHabitDoneToday]
   );
 
   const levelInfo = useMemo(
@@ -181,9 +318,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       };
       const delta = was ? -habit.points : habit.points;
       const lifetimePoints = Math.max(0, rolled.lifetimePoints + delta);
-      const nextScore = scoreFromCompletions(completedHabits);
+      const nextScore = dailyScoreFromState(
+        completedHabits,
+        rolled.healthyHabitDoneToday
+      );
 
-      // Streak is finalized on day rollover; badges use current score live
       const next: AppState = {
         ...rolled,
         completedHabits,
@@ -241,30 +380,70 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const toggleHealthyHabit = useCallback((id: string) => {
     setState((prev) => {
-      const checks = { ...(prev.healthyHabitChecks || {}) };
-      const doneToday = { ...(prev.healthyHabitDoneToday || {}) };
+      const rolled = applyDayRollover(prev);
+      const checks = { ...(rolled.healthyHabitChecks || {}) };
+      const doneToday = { ...(rolled.healthyHabitDoneToday || {}) };
+      // Unfocus: refund points if it was completed today
+      let lifetimePoints = rolled.lifetimePoints;
       if (checks[id]) {
+        if (doneToday[id]) {
+          lifetimePoints = Math.max(0, lifetimePoints - HEALTHY_HABIT_POINTS);
+        }
         delete checks[id];
         delete doneToday[id];
       } else {
         checks[id] = true;
       }
+      const nextScore = dailyScoreFromState(
+        rolled.completedHabits,
+        doneToday
+      );
       return {
-        ...prev,
+        ...rolled,
         healthyHabitChecks: checks,
         healthyHabitDoneToday: doneToday,
+        lifetimePoints,
+        scoreHistory: {
+          ...rolled.scoreHistory,
+          [rolled.activeDate]: nextScore,
+        },
+        unlockedBadges: evaluateBadges(
+          { ...rolled, healthyHabitDoneToday: doneToday, lifetimePoints },
+          nextScore
+        ),
       };
     });
   }, []);
 
   const toggleHealthyHabitDone = useCallback((id: string) => {
     setState((prev) => {
-      // Only allow complete if habit is in focus set
-      if (!prev.healthyHabitChecks?.[id]) return prev;
-      const doneToday = { ...(prev.healthyHabitDoneToday || {}) };
-      if (doneToday[id]) delete doneToday[id];
+      const rolled = applyDayRollover(prev);
+      if (!rolled.healthyHabitChecks?.[id]) return rolled;
+
+      const doneToday = { ...(rolled.healthyHabitDoneToday || {}) };
+      const was = !!doneToday[id];
+      if (was) delete doneToday[id];
       else doneToday[id] = true;
-      return { ...prev, healthyHabitDoneToday: doneToday };
+
+      const delta = was ? -HEALTHY_HABIT_POINTS : HEALTHY_HABIT_POINTS;
+      const lifetimePoints = Math.max(0, rolled.lifetimePoints + delta);
+      const nextScore = dailyScoreFromState(
+        rolled.completedHabits,
+        doneToday
+      );
+
+      const next: AppState = {
+        ...rolled,
+        healthyHabitDoneToday: doneToday,
+        lifetimePoints,
+        lastActiveDate: todayKey(),
+      };
+      next.unlockedBadges = evaluateBadges(next, nextScore);
+      next.scoreHistory = {
+        ...next.scoreHistory,
+        [next.activeDate]: nextScore,
+      };
+      return next;
     });
   }, []);
 
@@ -287,11 +466,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const resetToday = useCallback(() => {
     setState((prev) => {
-      // Reverse lifetime points for currently completed habits
-      const refund = scoreFromCompletions(prev.completedHabits);
+      const refund = dailyScoreFromState(
+        prev.completedHabits,
+        prev.healthyHabitDoneToday
+      );
       return {
         ...prev,
         completedHabits: {},
+        healthyHabitDoneToday: {},
         lifetimePoints: Math.max(0, prev.lifetimePoints - refund),
         scoreHistory: { ...prev.scoreHistory, [prev.activeDate]: 0 },
       };
@@ -301,6 +483,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value: Store = {
     state,
     hydrated,
+    syncStatus,
     dailyScore,
     levelInfo,
     toggleHabit,

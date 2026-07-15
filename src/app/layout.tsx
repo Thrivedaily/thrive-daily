@@ -1,8 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
-import { AppStoreProvider } from "@/lib/store";
+import { Providers } from "@/components/providers";
 import { AppShell } from "@/components/nav";
 import { ServiceWorkerRegister } from "@/components/pwa-register";
 
@@ -64,12 +63,10 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}
       >
-        <ThemeProvider>
-          <AppStoreProvider>
-            <AppShell>{children}</AppShell>
-            <ServiceWorkerRegister />
-          </AppStoreProvider>
-        </ThemeProvider>
+        <Providers>
+          <AppShell>{children}</AppShell>
+          <ServiceWorkerRegister />
+        </Providers>
       </body>
     </html>
   );

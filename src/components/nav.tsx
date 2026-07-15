@@ -3,19 +3,171 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  SignInButton,
+  SignUpButton,
+  UserButton,
+  useAuth,
+  useUser,
+} from "@clerk/nextjs";
+import {
   BookOpen,
   Crosshair,
   FlaskConical,
   HeartPulse,
   Home,
+  LogIn,
   Menu,
   Sparkles,
   Target,
+  UserPlus,
+  UserRound,
   X,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAppStore } from "@/lib/store";
+
+function SyncHint({ className }: { className?: string }) {
+  const { syncStatus } = useAppStore();
+  const label =
+    syncStatus === "loading"
+      ? "Syncing…"
+      : syncStatus === "saving"
+        ? "Saving…"
+        : syncStatus === "synced"
+          ? "Cloud sync on"
+          : syncStatus === "error"
+            ? "Cloud sync offline"
+            : "Local only";
+
+  return (
+    <p
+      className={cn(
+        "truncate text-[10px] leading-tight",
+        syncStatus === "error"
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-muted-foreground/80",
+        className
+      )}
+    >
+      {label}
+    </p>
+  );
+}
+
+/** Auth block styled like nav items — under Coaching on desktop + mobile menu */
+function NavAuthSection({
+  onNavigate,
+  dense = false,
+}: {
+  onNavigate?: () => void;
+  dense?: boolean;
+}) {
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
+  const pathname = usePathname();
+  const profileActive = pathname.startsWith("/profile");
+
+  if (!isLoaded) {
+    return (
+      <div
+        className={cn(
+          "rounded-xl border border-border/60 bg-muted/30",
+          dense ? "h-12" : "h-14"
+        )}
+        aria-hidden
+      />
+    );
+  }
+
+  if (isSignedIn) {
+    const name =
+      user?.fullName ||
+      user?.firstName ||
+      user?.primaryEmailAddress?.emailAddress?.split("@")[0] ||
+      "Your profile";
+    const email = user?.primaryEmailAddress?.emailAddress;
+
+    return (
+      <div className="space-y-1">
+        <div
+          className={cn(
+            "flex items-center gap-3 rounded-xl border px-2.5 py-2 transition",
+            profileActive
+              ? "border-teal-500/30 bg-teal-500/15"
+              : "border-border/70 bg-background/50 hover:bg-muted/60"
+          )}
+        >
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: "h-9 w-9",
+                userButtonPopoverCard: "shadow-lg",
+              },
+            }}
+          />
+          <Link
+            href="/profile"
+            onClick={onNavigate}
+            className="min-w-0 flex-1 text-left"
+          >
+            <p
+              className={cn(
+                "truncate text-sm font-medium",
+                profileActive
+                  ? "text-teal-700 dark:text-teal-300"
+                  : "text-foreground"
+              )}
+            >
+              {name}
+            </p>
+            {email ? (
+              <p className="truncate text-[10px] text-muted-foreground">
+                {email}
+              </p>
+            ) : (
+              <SyncHint />
+            )}
+            {email ? <SyncHint className="mt-0.5" /> : null}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <SignInButton mode="modal">
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
+            "text-muted-foreground hover:bg-muted hover:text-foreground",
+            dense && "py-3 text-foreground"
+          )}
+        >
+          <LogIn className="h-4 w-4 shrink-0" />
+          Sign In
+        </button>
+      </SignInButton>
+      <SignUpButton mode="modal">
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition",
+            "bg-gradient-to-r from-teal-500/15 to-emerald-500/10 text-teal-800 hover:from-teal-500/25 hover:to-emerald-500/20 dark:text-teal-200",
+            dense && "py-3"
+          )}
+        >
+          <UserPlus className="h-4 w-4 shrink-0" />
+          Sign Up
+        </button>
+      </SignUpButton>
+    </div>
+  );
+}
 
 const NAV = [
   { href: "/", label: "Home", icon: Home },
@@ -25,15 +177,60 @@ const NAV = [
   { href: "/habits", label: "Healthy Habits", icon: HeartPulse },
   { href: "/science", label: "Science", icon: FlaskConical },
   { href: "/coaching", label: "Coaching", icon: Sparkles },
+  { href: "/profile", label: "Profile", icon: UserRound },
 ];
+
+/** Primary items before the auth block (auth sits under Coaching) */
+const NAV_BEFORE_AUTH = NAV.filter((item) => item.href !== "/profile");
+const NAV_PROFILE = NAV.find((item) => item.href === "/profile")!;
 
 const MOBILE_PRIMARY = [
   { href: "/", label: "Home", icon: Home },
   { href: "/protocols", label: "Protocols", icon: Target },
   { href: "/virtues", label: "Virtues", icon: BookOpen },
-  { href: "/goals", label: "Touchstones", icon: Crosshair },
+  { href: "/profile", label: "Profile", icon: UserRound },
   { href: "/coaching", label: "Coaching", icon: Sparkles },
 ];
+
+function NavLinks({
+  items,
+  pathname,
+  onNavigate,
+  dense = false,
+}: {
+  items: typeof NAV;
+  pathname: string;
+  onNavigate?: () => void;
+  dense?: boolean;
+}) {
+  return (
+    <>
+      {items.map(({ href, label, icon: Icon }) => {
+        const active =
+          href === "/" ? pathname === "/" : pathname.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-xl px-3 text-sm font-medium transition",
+              dense ? "py-3" : "py-2.5",
+              active
+                ? "bg-teal-500/15 text-teal-700 dark:text-teal-300"
+                : dense
+                  ? "text-foreground hover:bg-muted"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -48,31 +245,27 @@ export function Sidebar() {
           <p className="text-base font-bold tracking-tight text-foreground">
             Thrive Daily
           </p>
-          <p className="text-xs text-muted-foreground">Protocols · Virtues · Growth</p>
+          <p className="text-xs text-muted-foreground">
+            Protocols · Virtues · Growth
+          </p>
         </div>
       </div>
-      <nav className="flex flex-1 flex-col gap-1">
-        {NAV.map(({ href, label, icon: Icon }) => {
-          const active =
-            href === "/" ? pathname === "/" : pathname.startsWith(href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-                active
-                  ? "bg-teal-500/15 text-teal-700 dark:text-teal-300"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {label}
-            </Link>
-          );
-        })}
+
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+        <NavLinks items={NAV_BEFORE_AUTH} pathname={pathname} />
+
+        {/* Account — directly under Coaching */}
+        <div className="my-2 border-t border-border pt-3">
+          <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Account
+          </p>
+          <NavAuthSection />
+        </div>
+
+        <NavLinks items={[NAV_PROFILE]} pathname={pathname} />
       </nav>
-      <div className="mt-4 flex items-center justify-between px-2">
+
+      <div className="mt-4 flex items-center justify-between border-t border-border px-2 pt-4">
         <span className="text-xs text-muted-foreground">Theme</span>
         <ThemeToggle />
       </div>
@@ -126,27 +319,30 @@ export function MobileHeader() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex flex-col gap-1 overflow-y-auto">
-              {NAV.map(({ href, label, icon: Icon }) => {
-                const active =
-                  href === "/" ? pathname === "/" : pathname.startsWith(href);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium",
-                      active
-                        ? "bg-teal-500/15 text-teal-700 dark:text-teal-300"
-                        : "text-foreground hover:bg-muted"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Link>
-                );
-              })}
+            <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
+              <NavLinks
+                items={NAV_BEFORE_AUTH}
+                pathname={pathname}
+                onNavigate={() => setOpen(false)}
+                dense
+              />
+
+              <div className="my-2 border-t border-border pt-3">
+                <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Account
+                </p>
+                <NavAuthSection
+                  dense
+                  onNavigate={() => setOpen(false)}
+                />
+              </div>
+
+              <NavLinks
+                items={[NAV_PROFILE]}
+                pathname={pathname}
+                onNavigate={() => setOpen(false)}
+                dense
+              />
             </nav>
           </div>
         </div>

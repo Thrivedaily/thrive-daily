@@ -2,12 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BookOpen, Check, Compass, Flame, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  BookOpen,
+  Check,
+  Compass,
+  Flame,
+  Sparkles,
+} from "lucide-react";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ProgressRing } from "@/components/ui/progress-ring";
+import { LeaderboardWidget } from "@/components/leaderboard-widget";
 import { useAppStore, useBadgeMeta } from "@/lib/store";
 import { formatDisplayDate, greetingForHour } from "@/lib/dates";
 import {
+  HEALTHY_HABIT_POINTS,
   MAX_DAILY_POINTS,
   THRIVING_THRESHOLD,
   tierForScore,
@@ -102,7 +112,7 @@ export default function HomePage() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        {/* Daily Score — score + momentum in one place */}
+        {/* Daily Score — score, badges, leaderboard */}
         <Card className="relative overflow-hidden shadow-glow">
           <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-teal-500/10 blur-2xl" />
           <CardTitle className="mb-4">Daily Score</CardTitle>
@@ -163,42 +173,62 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Thriving badge when threshold met; other badges only if achieved */}
-          {(isThriving || achievedBadges.length > 0) && (
-            <div className="mt-3 space-y-2">
-              {isThriving && (
-                <div className="flex items-center gap-3 rounded-xl border border-teal-500/40 bg-gradient-to-r from-teal-500/15 to-emerald-500/10 px-3 py-2.5">
-                  <span className="text-2xl" aria-hidden>
-                    🏆
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-teal-800 dark:text-teal-200">
-                      Thriving
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {THRIVING_THRESHOLD}+ points — you hit today&apos;s mark
-                    </p>
-                  </div>
-                </div>
-              )}
-              {achievedBadges.filter((b) => b.id !== "thriving").length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {achievedBadges
-                    .filter((b) => b.id !== "thriving")
-                    .map((b) => (
-                      <span
-                        key={b.id}
-                        title={b.description}
-                        className="inline-flex items-center gap-1 rounded-full border border-teal-500/30 bg-teal-500/10 px-2 py-1 text-[11px] font-medium"
-                      >
-                        <span aria-hidden>{b.emoji}</span>
-                        {b.name}
-                      </span>
-                    ))}
-                </div>
-              )}
+          {isThriving && (
+            <div className="mt-3 flex items-center gap-3 rounded-xl border border-teal-500/40 bg-gradient-to-r from-teal-500/15 to-emerald-500/10 px-3 py-2.5">
+              <span className="text-2xl" aria-hidden>
+                🏆
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-teal-800 dark:text-teal-200">
+                  Thriving
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {THRIVING_THRESHOLD}+ points — you hit today&apos;s mark
+                </p>
+              </div>
             </div>
           )}
+
+          {/* Badges Earned */}
+          <div className="mt-4 border-t border-border/80 pt-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5">
+                <Award className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400" />
+                <p className="text-xs font-semibold uppercase tracking-wide text-teal-700 dark:text-teal-300">
+                  Badges Earned
+                </p>
+              </div>
+              <span className="text-[10px] tabular-nums text-muted-foreground">
+                {achievedBadges.length}
+              </span>
+            </div>
+            {achievedBadges.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-teal-500/25 bg-teal-500/5 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+                Complete protocols to earn your first badge — momentum starts
+                with one check.
+              </p>
+            ) : (
+              <ul className="flex flex-wrap gap-1.5">
+                {achievedBadges.map((b) => (
+                  <li
+                    key={b.id}
+                    title={b.description}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-teal-500/30 bg-gradient-to-r from-teal-500/12 to-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-foreground"
+                  >
+                    <span className="text-sm leading-none" aria-hidden>
+                      {b.emoji}
+                    </span>
+                    {b.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Leaderboard — inside Daily Score, expandable */}
+          <div className="mt-4 border-t border-border/80 pt-3">
+            <LeaderboardWidget embedded />
+          </div>
         </Card>
 
         {/* Right column: Virtue + Touchstone of the Day */}
@@ -368,7 +398,7 @@ export default function HomePage() {
             <p className="mt-0.5 text-xs text-muted-foreground">
               {focusedHealthyHabits.length === 0
                 ? "Select habits to weave into your day"
-                : `Part of today’s stack · ${healthyDoneCount}/${focusedHealthyHabits.length} done`}
+                : `Part of today’s stack · ${healthyDoneCount}/${focusedHealthyHabits.length} done · +${HEALTHY_HABIT_POINTS} pts each`}
             </p>
           </div>
           <Link
@@ -429,6 +459,9 @@ export default function HomePage() {
                       <span className="mt-0.5 block text-[11px] text-muted-foreground">
                         {habit.category}
                       </span>
+                    </span>
+                    <span className="shrink-0 text-[11px] font-semibold tabular-nums text-teal-700 dark:text-teal-300">
+                      +{HEALTHY_HABIT_POINTS}
                     </span>
                   </button>
                 </li>
