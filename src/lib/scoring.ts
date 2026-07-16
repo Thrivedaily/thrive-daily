@@ -1,5 +1,6 @@
 import { HABITS, MAX_DAILY_POINTS } from "@/data/habits";
-import type { ScoreTier } from "@/lib/types";
+import type { AppState, ScoreTier } from "@/lib/types";
+import { resolveProtocols } from "@/lib/catalog";
 
 export const THRIVING_THRESHOLD = 150;
 
@@ -45,11 +46,15 @@ export const SCORE_TIERS: ScoreTier[] = [
   },
 ];
 
-/** Daily Protocols points only (unchanged per-habit values) */
+type PointHabit = { id: string; points: number };
+
+/** Daily Protocols points from a resolved habit list (defaults + customs) */
 export function scoreFromCompletions(
-  completed: Record<string, boolean>
+  completed: Record<string, boolean>,
+  protocols?: PointHabit[]
 ): number {
-  return HABITS.reduce(
+  const list = protocols ?? HABITS;
+  return list.reduce(
     (sum, h) => sum + (completed[h.id] ? h.points : 0),
     0
   );
@@ -68,12 +73,23 @@ export function scoreFromHealthyHabits(
 /** Full daily score: protocols + healthy habits */
 export function dailyScoreFromState(
   completedHabits: Record<string, boolean>,
-  healthyHabitDoneToday?: Record<string, boolean>
+  healthyHabitDoneToday?: Record<string, boolean>,
+  catalogState?: Pick<AppState, "customProtocols" | "protocolOrder">
 ): number {
+  const protocols = catalogState
+    ? resolveProtocols(catalogState)
+    : HABITS;
   return (
-    scoreFromCompletions(completedHabits) +
+    scoreFromCompletions(completedHabits, protocols) +
     scoreFromHealthyHabits(healthyHabitDoneToday)
   );
+}
+
+export function maxProtocolPoints(
+  catalogState?: Pick<AppState, "customProtocols" | "protocolOrder">
+): number {
+  if (!catalogState) return MAX_DAILY_POINTS;
+  return resolveProtocols(catalogState).reduce((s, h) => s + h.points, 0);
 }
 
 export function tierForScore(score: number): ScoreTier {

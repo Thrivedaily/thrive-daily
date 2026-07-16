@@ -105,6 +105,43 @@ export interface AppState {
   scoreHistory: Record<string, number>;
   /** Virtue reflections by virtue id + date */
   virtueNotes: Record<string, string>;
+
+  /** User-added Daily Protocols (start from defaults + these) */
+  customProtocols: CustomProtocol[];
+  /** Ordered protocol ids; empty = default order then customs */
+  protocolOrder: string[];
+  /** User-added Healthy Habits guide items */
+  customHealthyHabits: CustomHealthyHabit[];
+  /** Ordered healthy-habit ids */
+  healthyHabitOrder: string[];
+  /** User-added Daily Touchstones */
+  customTouchstones: CustomTouchstone[];
+  /** Ordered touchstone ids */
+  touchstoneOrder: string[];
+}
+
+/** User-created daily protocol habit */
+export interface CustomProtocol {
+  id: string;
+  name: string;
+  points: number;
+  categoryKey: string;
+  time?: string;
+}
+
+/** User-created healthy habit focus item */
+export interface CustomHealthyHabit {
+  id: string;
+  name: string;
+  categoryKey: string;
+  science?: string;
+}
+
+/** User-created daily touchstone */
+export interface CustomTouchstone {
+  id: string;
+  title: string;
+  description: string;
 }
 
 export type ScoreTier = {

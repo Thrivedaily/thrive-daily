@@ -11,7 +11,6 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { HABITS } from "@/data/habits";
 import { BADGE_DEFS, levelFromLifetimePoints } from "@/data/badges";
 import {
   daysBetween,
@@ -19,14 +18,32 @@ import {
   msUntilMidnight,
   todayKey,
 } from "@/lib/dates";
+import {
+  mergeOrder,
+  moveIdInOrder,
+  newCustomId,
+  resolveHealthyHabits,
+  resolveProtocols,
+  resolveTouchstones,
+} from "@/lib/catalog";
+import { HABITS } from "@/data/habits";
+import { HEALTHY_HABITS } from "@/data/healthyHabits";
+import { TOUCHSTONES } from "@/data/touchstones";
 import { pickStateOnSignIn } from "@/lib/progress-cloud";
 import {
   HEALTHY_HABIT_POINTS,
   dailyScoreFromState,
+  maxProtocolPoints,
   THRIVING_THRESHOLD,
 } from "@/lib/scoring";
 import { defaultState, loadState, saveState } from "@/lib/storage";
-import type { AppState, DailyGoal } from "@/lib/types";
+import type {
+  AppState,
+  CustomHealthyHabit,
+  CustomProtocol,
+  CustomTouchstone,
+  DailyGoal,
+} from "@/lib/types";
 
 type SyncStatus = "idle" | "loading" | "synced" | "saving" | "error" | "local";
 
@@ -35,7 +52,11 @@ type Store = {
   hydrated: boolean;
   syncStatus: SyncStatus;
   dailyScore: number;
+  maxDailyPoints: number;
   levelInfo: ReturnType<typeof levelFromLifetimePoints>;
+  protocols: ReturnType<typeof resolveProtocols>;
+  healthyHabitsCatalog: ReturnType<typeof resolveHealthyHabits>;
+  touchstonesCatalog: ReturnType<typeof resolveTouchstones>;
   toggleHabit: (habitId: string) => void;
   setUserName: (name: string) => void;
   addGoal: (text: string) => void;
@@ -47,6 +68,25 @@ type Store = {
   setVirtueNote: (virtueId: string, note: string) => void;
   unlockBadge: (id: string) => void;
   resetToday: () => void;
+  /** Catalog customization (persists via AppState → Clerk when signed in) */
+  reorderProtocol: (id: string, direction: "up" | "down") => void;
+  addCustomProtocol: (input: {
+    name: string;
+    points: number;
+    categoryKey: string;
+    time?: string;
+  }) => void;
+  removeCustomProtocol: (id: string) => void;
+  reorderHealthyHabit: (id: string, direction: "up" | "down") => void;
+  addCustomHealthyHabit: (input: {
+    name: string;
+    categoryKey: string;
+    science?: string;
+  }) => void;
+  removeCustomHealthyHabit: (id: string) => void;
+  reorderTouchstone: (id: string, direction: "up" | "down") => void;
+  addCustomTouchstone: (input: { title: string; description: string }) => void;
+  removeCustomTouchstone: (id: string) => void;
 };
 
 const AppStoreContext = createContext<Store | null>(null);
@@ -102,7 +142,8 @@ function applyDayRollover(prev: AppState, now = new Date()): AppState {
 
   const prevScore = dailyScoreFromState(
     prev.completedHabits,
-    prev.healthyHabitDoneToday
+    prev.healthyHabitDoneToday,
+    prev
   );
   const scoreHistory = { ...prev.scoreHistory };
   if (prev.activeDate) {
@@ -152,7 +193,8 @@ function withScoreUpdate(
   let next: AppState = { ...base, ...patch };
   const score = dailyScoreFromState(
     next.completedHabits,
-    next.healthyHabitDoneToday
+    next.healthyHabitDoneToday,
+    next
   );
   next = applyThrivingDayIfNeeded(next, score, next.activeDate);
   next.scoreHistory = {
@@ -168,6 +210,7 @@ function evaluateBadges(state: AppState, dailyScore: number): string[] {
   const completedCount = Object.values(state.completedHabits).filter(Boolean)
     .length;
   const level = levelFromLifetimePoints(state.lifetimePoints).level;
+  const protocolCount = resolveProtocols(state).length;
 
   const tryUnlock = (id: string, cond: boolean) => {
     if (cond) unlocked.add(id);
@@ -176,7 +219,7 @@ function evaluateBadges(state: AppState, dailyScore: number): string[] {
   tryUnlock("first-check", completedCount >= 1);
   tryUnlock("fifty-points", dailyScore >= 50);
   tryUnlock("thriving", dailyScore >= THRIVING_THRESHOLD);
-  tryUnlock("max-day", completedCount >= HABITS.length);
+  tryUnlock("max-day", completedCount >= protocolCount);
   tryUnlock("streak-3", state.streak >= 3);
   tryUnlock("streak-7", state.streak >= 7);
   tryUnlock("streak-30", state.streak >= 30);
@@ -356,13 +399,29 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     };
   }, [hydrated]);
 
+  const protocols = useMemo(() => resolveProtocols(state), [state]);
+  const healthyHabitsCatalog = useMemo(
+    () => resolveHealthyHabits(state),
+    [state]
+  );
+  const touchstonesCatalog = useMemo(
+    () => resolveTouchstones(state),
+    [state]
+  );
+
   const dailyScore = useMemo(
     () =>
       dailyScoreFromState(
         state.completedHabits,
-        state.healthyHabitDoneToday
+        state.healthyHabitDoneToday,
+        state
       ),
-    [state.completedHabits, state.healthyHabitDoneToday]
+    [state]
+  );
+
+  const maxDailyPoints = useMemo(
+    () => maxProtocolPoints(state),
+    [state]
   );
 
   const levelInfo = useMemo(
@@ -373,7 +432,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const toggleHabit = useCallback((habitId: string) => {
     setState((prev) => {
       const rolled = applyDayRollover(prev);
-      const habit = HABITS.find((h) => h.id === habitId);
+      const habit = resolveProtocols(rolled).find((h) => h.id === habitId);
       if (!habit) return rolled;
 
       const was = !!rolled.completedHabits[habitId];
@@ -498,7 +557,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setState((prev) => {
       const refund = dailyScoreFromState(
         prev.completedHabits,
-        prev.healthyHabitDoneToday
+        prev.healthyHabitDoneToday,
+        prev
       );
       return {
         ...prev,
@@ -510,12 +570,210 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const reorderProtocol = useCallback((id: string, direction: "up" | "down") => {
+    setState((prev) => {
+      const current = mergeOrder(
+        HABITS.map((h) => h.id),
+        (prev.customProtocols || []).map((c) => c.id),
+        prev.protocolOrder
+      );
+      return { ...prev, protocolOrder: moveIdInOrder(current, id, direction) };
+    });
+  }, []);
+
+  const addCustomProtocol = useCallback(
+    (input: {
+      name: string;
+      points: number;
+      categoryKey: string;
+      time?: string;
+    }) => {
+      const name = input.name.trim();
+      if (!name) return;
+      const points = Math.max(0, Math.min(100, Math.floor(input.points) || 0));
+      const custom: CustomProtocol = {
+        id: newCustomId("proto"),
+        name,
+        points,
+        categoryKey: input.categoryKey,
+        time: input.time?.trim() || "Anytime",
+      };
+      setState((prev) => {
+        const customs = [...(prev.customProtocols || []), custom];
+        const order = mergeOrder(
+          HABITS.map((h) => h.id),
+          customs.map((c) => c.id),
+          prev.protocolOrder
+        );
+        if (!order.includes(custom.id)) order.push(custom.id);
+        return {
+          ...prev,
+          customProtocols: customs,
+          protocolOrder: order,
+        };
+      });
+    },
+    []
+  );
+
+  const removeCustomProtocol = useCallback((id: string) => {
+    setState((prev) => {
+      const customs = (prev.customProtocols || []).filter((c) => c.id !== id);
+      const wasDone = !!prev.completedHabits[id];
+      const removed = (prev.customProtocols || []).find((c) => c.id === id);
+      const refund =
+        wasDone && removed ? Math.max(0, removed.points) : 0;
+      const completedHabits = { ...prev.completedHabits };
+      delete completedHabits[id];
+      const protocolOrder = (prev.protocolOrder || []).filter((x) => x !== id);
+      return withScoreUpdate(prev, {
+        customProtocols: customs,
+        protocolOrder,
+        completedHabits,
+        lifetimePoints: Math.max(0, prev.lifetimePoints - refund),
+      });
+    });
+  }, []);
+
+  const reorderHealthyHabit = useCallback(
+    (id: string, direction: "up" | "down") => {
+      setState((prev) => {
+        const current = mergeOrder(
+          HEALTHY_HABITS.map((h) => h.id),
+          (prev.customHealthyHabits || []).map((c) => c.id),
+          prev.healthyHabitOrder
+        );
+        return {
+          ...prev,
+          healthyHabitOrder: moveIdInOrder(current, id, direction),
+        };
+      });
+    },
+    []
+  );
+
+  const addCustomHealthyHabit = useCallback(
+    (input: { name: string; categoryKey: string; science?: string }) => {
+      const name = input.name.trim();
+      if (!name) return;
+      const custom: CustomHealthyHabit = {
+        id: newCustomId("hh"),
+        name,
+        categoryKey: input.categoryKey,
+        science: input.science?.trim() || undefined,
+      };
+      setState((prev) => {
+        const customs = [...(prev.customHealthyHabits || []), custom];
+        const order = mergeOrder(
+          HEALTHY_HABITS.map((h) => h.id),
+          customs.map((c) => c.id),
+          prev.healthyHabitOrder
+        );
+        if (!order.includes(custom.id)) order.push(custom.id);
+        return {
+          ...prev,
+          customHealthyHabits: customs,
+          healthyHabitOrder: order,
+        };
+      });
+    },
+    []
+  );
+
+  const removeCustomHealthyHabit = useCallback((id: string) => {
+    setState((prev) => {
+      const customs = (prev.customHealthyHabits || []).filter(
+        (c) => c.id !== id
+      );
+      const checks = { ...(prev.healthyHabitChecks || {}) };
+      const doneToday = { ...(prev.healthyHabitDoneToday || {}) };
+      let lifetimePoints = prev.lifetimePoints;
+      if (doneToday[id]) {
+        lifetimePoints = Math.max(0, lifetimePoints - HEALTHY_HABIT_POINTS);
+      }
+      delete checks[id];
+      delete doneToday[id];
+      return withScoreUpdate(prev, {
+        customHealthyHabits: customs,
+        healthyHabitOrder: (prev.healthyHabitOrder || []).filter(
+          (x) => x !== id
+        ),
+        healthyHabitChecks: checks,
+        healthyHabitDoneToday: doneToday,
+        lifetimePoints,
+      });
+    });
+  }, []);
+
+  const reorderTouchstone = useCallback(
+    (id: string, direction: "up" | "down") => {
+      setState((prev) => {
+        const current = mergeOrder(
+          TOUCHSTONES.map((t) => t.id),
+          (prev.customTouchstones || []).map((c) => c.id),
+          prev.touchstoneOrder
+        );
+        return {
+          ...prev,
+          touchstoneOrder: moveIdInOrder(current, id, direction),
+        };
+      });
+    },
+    []
+  );
+
+  const addCustomTouchstone = useCallback(
+    (input: { title: string; description: string }) => {
+      const title = input.title.trim();
+      if (!title) return;
+      const custom: CustomTouchstone = {
+        id: newCustomId("ts"),
+        title,
+        description: input.description.trim(),
+      };
+      setState((prev) => {
+        const customs = [...(prev.customTouchstones || []), custom];
+        const order = mergeOrder(
+          TOUCHSTONES.map((t) => t.id),
+          customs.map((c) => c.id),
+          prev.touchstoneOrder
+        );
+        if (!order.includes(custom.id)) order.push(custom.id);
+        return {
+          ...prev,
+          customTouchstones: customs,
+          touchstoneOrder: order,
+        };
+      });
+    },
+    []
+  );
+
+  const removeCustomTouchstone = useCallback((id: string) => {
+    setState((prev) => {
+      const done = { ...(prev.touchstoneDoneToday || {}) };
+      delete done[id];
+      return {
+        ...prev,
+        customTouchstones: (prev.customTouchstones || []).filter(
+          (c) => c.id !== id
+        ),
+        touchstoneOrder: (prev.touchstoneOrder || []).filter((x) => x !== id),
+        touchstoneDoneToday: done,
+      };
+    });
+  }, []);
+
   const value: Store = {
     state,
     hydrated,
     syncStatus,
     dailyScore,
+    maxDailyPoints,
     levelInfo,
+    protocols,
+    healthyHabitsCatalog,
+    touchstonesCatalog,
     toggleHabit,
     setUserName,
     addGoal,
@@ -527,6 +785,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setVirtueNote,
     unlockBadge,
     resetToday,
+    reorderProtocol,
+    addCustomProtocol,
+    removeCustomProtocol,
+    reorderHealthyHabit,
+    addCustomHealthyHabit,
+    removeCustomHealthyHabit,
+    reorderTouchstone,
+    addCustomTouchstone,
+    removeCustomTouchstone,
   };
 
   return (

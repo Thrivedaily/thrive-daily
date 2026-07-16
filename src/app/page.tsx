@@ -9,8 +9,10 @@ import {
   Check,
   Compass,
   Flame,
+  Pencil,
   Sparkles,
 } from "lucide-react";
+import { useAuth, SignInButton } from "@clerk/nextjs";
 import { Card, CardTitle } from "@/components/ui/card";
 import { ProgressRing } from "@/components/ui/progress-ring";
 import { LeaderboardWidget } from "@/components/leaderboard-widget";
@@ -18,12 +20,10 @@ import { useAppStore, useBadgeMeta } from "@/lib/store";
 import { formatDisplayDate, greetingForHour } from "@/lib/dates";
 import {
   HEALTHY_HABIT_POINTS,
-  MAX_DAILY_POINTS,
   THRIVING_THRESHOLD,
   tierForScore,
 } from "@/lib/scoring";
-import { CATEGORIES, HABITS } from "@/data/habits";
-import { HEALTHY_HABITS } from "@/data/healthyHabits";
+import { CATEGORIES } from "@/data/habits";
 import { getVirtueOfTheDay } from "@/data/virtues";
 import { getTouchstoneOfTheDay } from "@/data/touchstones";
 import { cn } from "@/lib/cn";
@@ -36,10 +36,14 @@ function thrivingRingPercent(score: number): number {
 }
 
 export default function HomePage() {
+  const { isSignedIn } = useAuth();
   const {
     state,
     hydrated,
     dailyScore,
+    maxDailyPoints,
+    protocols,
+    healthyHabitsCatalog,
     setUserName,
     toggleHabit,
     toggleHealthyHabitDone,
@@ -51,11 +55,11 @@ export default function HomePage() {
   const achievedBadges = badges.filter((b) => b.unlocked);
   const virtue = getVirtueOfTheDay();
   const touchstone = getTouchstoneOfTheDay();
-  const done = Object.values(state.completedHabits).filter(Boolean).length;
+  const done = protocols.filter((h) => state.completedHabits[h.id]).length;
 
-  const focusedHealthyHabits = HEALTHY_HABITS.filter(
+  const focusedHealthyHabits = healthyHabitsCatalog.filter(
     (h) => state.healthyHabitChecks?.[h.id]
-  ).sort((a, b) => a.order - b.order);
+  );
   const healthyDoneCount = focusedHealthyHabits.filter(
     (h) => state.healthyHabitDoneToday?.[h.id]
   ).length;
@@ -123,7 +127,7 @@ export default function HomePage() {
             <ProgressRing value={thrivingRingPercent(dailyScore)} size={120}>
               <span className="text-2xl font-bold tabular-nums">{dailyScore}</span>
               <span className="text-[10px] text-muted-foreground">
-                / {MAX_DAILY_POINTS}
+                / {maxDailyPoints}
               </span>
             </ProgressRing>
             <div className="min-w-0 space-y-1.5">
@@ -137,7 +141,7 @@ export default function HomePage() {
                   {THRIVING_THRESHOLD}+
                 </span>
                 {" · "}
-                {done}/{HABITS.length} protocols
+                {done}/{protocols.length} protocols
               </p>
             </div>
           </div>
@@ -306,16 +310,41 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Link
-        href="/protocols"
-        className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 px-5 py-4 text-white shadow-lg shadow-teal-600/25 transition hover:brightness-110"
-      >
-        <div>
-          <p className="text-sm font-medium text-white/80">Ready when you are</p>
-          <p className="text-lg font-bold">Start Daily Protocols</p>
+      <div className="overflow-hidden rounded-2xl bg-gradient-to-r from-teal-600 to-emerald-600 shadow-lg shadow-teal-600/25">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
+          <Link
+            href="/protocols"
+            className="group flex min-w-0 flex-1 items-center justify-between gap-3 text-white transition hover:brightness-110"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white/80">
+                Ready when you are
+              </p>
+              <p className="text-lg font-bold">Start Daily Protocols</p>
+            </div>
+            <ArrowRight className="h-6 w-6 shrink-0 transition group-hover:translate-x-0.5" />
+          </Link>
+          {isSignedIn ? (
+            <Link
+              href="/protocols?customize=1"
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3.5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25"
+            >
+              <Pencil className="h-4 w-4" />
+              Customize
+            </Link>
+          ) : (
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-white/35 bg-white/15 px-3.5 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/25"
+              >
+                <Pencil className="h-4 w-4" />
+                Customize
+              </button>
+            </SignInButton>
+          )}
         </div>
-        <ArrowRight className="h-6 w-6" />
-      </Link>
+      </div>
 
       {/* Compact protocol checklist — quick access from home */}
       <Card className="space-y-4 p-4 sm:p-5">
@@ -323,7 +352,7 @@ export default function HomePage() {
           <div>
             <CardTitle className="text-base">Today&apos;s protocols</CardTitle>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Tap to check off · {done}/{HABITS.length} done · {dailyScore} pts
+              Tap to check off · {done}/{protocols.length} done · {dailyScore} pts
             </p>
           </div>
           <Link
@@ -336,9 +365,7 @@ export default function HomePage() {
 
         <div className="space-y-4">
           {CATEGORIES.map((cat) => {
-            const habits = HABITS.filter((h) => h.categoryKey === cat.key).sort(
-              (a, b) => a.order - b.order
-            );
+            const habits = protocols.filter((h) => h.categoryKey === cat.key);
             if (!habits.length) return null;
             const catDone = habits.filter(
               (h) => state.completedHabits[h.id]

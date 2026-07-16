@@ -21,6 +21,12 @@ export function defaultState(): AppState {
     userName: "",
     scoreHistory: {},
     virtueNotes: {},
+    customProtocols: [],
+    protocolOrder: [],
+    customHealthyHabits: [],
+    healthyHabitOrder: [],
+    customTouchstones: [],
+    touchstoneOrder: [],
   };
 }
 
@@ -48,6 +54,24 @@ export function loadState(): AppState {
     base.totalThrivingDays = Number(base.totalThrivingDays) || 0;
     base.lastThrivingDate =
       typeof base.lastThrivingDate === "string" ? base.lastThrivingDate : null;
+    base.customProtocols = Array.isArray(base.customProtocols)
+      ? base.customProtocols
+      : [];
+    base.protocolOrder = Array.isArray(base.protocolOrder)
+      ? base.protocolOrder
+      : [];
+    base.customHealthyHabits = Array.isArray(base.customHealthyHabits)
+      ? base.customHealthyHabits
+      : [];
+    base.healthyHabitOrder = Array.isArray(base.healthyHabitOrder)
+      ? base.healthyHabitOrder
+      : [];
+    base.customTouchstones = Array.isArray(base.customTouchstones)
+      ? base.customTouchstones
+      : [];
+    base.touchstoneOrder = Array.isArray(base.touchstoneOrder)
+      ? base.touchstoneOrder
+      : [];
 
     // Migrate totalThrivingDays from score history if never set
     if (

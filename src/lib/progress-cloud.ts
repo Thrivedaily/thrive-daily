@@ -91,6 +91,24 @@ export function normalizeAppState(raw: unknown): AppState {
       typeof parsed.lastActiveDate === "string" || parsed.lastActiveDate === null
         ? (parsed.lastActiveDate as string | null)
         : null,
+    customProtocols: Array.isArray(parsed.customProtocols)
+      ? parsed.customProtocols
+      : [],
+    protocolOrder: Array.isArray(parsed.protocolOrder)
+      ? parsed.protocolOrder
+      : [],
+    customHealthyHabits: Array.isArray(parsed.customHealthyHabits)
+      ? parsed.customHealthyHabits
+      : [],
+    healthyHabitOrder: Array.isArray(parsed.healthyHabitOrder)
+      ? parsed.healthyHabitOrder
+      : [],
+    customTouchstones: Array.isArray(parsed.customTouchstones)
+      ? parsed.customTouchstones
+      : [],
+    touchstoneOrder: Array.isArray(parsed.touchstoneOrder)
+      ? parsed.touchstoneOrder
+      : [],
   };
 }
 
